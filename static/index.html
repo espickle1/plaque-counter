@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phage Plaque Counter</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Phage Plaque Counter</h1>
+            <p class="subtitle">AI-powered bacteriophage plaque detection and counting</p>
+        </header>
+
+        <div class="stats-bar">
+            <div class="stat-item">
+                <span class="stat-label">Annotations:</span>
+                <span id="annotation-count" class="stat-value">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Model Version:</span>
+                <span id="model-version" class="stat-value">0</span>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- Upload Section -->
+            <div class="section upload-section">
+                <h2>1. Upload Petri Dish Image</h2>
+                <div class="upload-area" id="upload-area">
+                    <input type="file" id="image-input" accept="image/*" hidden>
+                    <div class="upload-prompt">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <p>Click to upload or drag and drop</p>
+                        <p class="upload-hint">Supported: JPG, PNG</p>
+                    </div>
+                </div>
+                <button id="analyze-btn" class="btn btn-primary" disabled>Analyze Image</button>
+            </div>
+
+            <!-- Results Section -->
+            <div class="section results-section" id="results-section" style="display: none;">
+                <h2>2. Detection Results</h2>
+
+                <div class="results-container">
+                    <div class="result-images">
+                        <div class="image-container">
+                            <h3>Original Image</h3>
+                            <img id="original-image" alt="Original">
+                        </div>
+                        <div class="image-container">
+                            <h3>Detected Plaques</h3>
+                            <img id="detected-image" alt="Detected plaques">
+                        </div>
+                    </div>
+
+                    <div class="detection-info">
+                        <div class="plaque-count">
+                            <h3>Detected Count</h3>
+                            <div class="count-display">
+                                <span id="plaque-count">0</span>
+                                <span class="count-label">plaques</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feedback Section -->
+            <div class="section feedback-section" id="feedback-section" style="display: none;">
+                <h2>3. Provide Feedback</h2>
+
+                <div class="feedback-container">
+                    <div class="feedback-form">
+                        <div class="form-group">
+                            <label for="actual-count">Actual Plaque Count:</label>
+                            <input type="number" id="actual-count" min="0" placeholder="Enter actual count">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Detection Accuracy:</label>
+                            <div class="feedback-options">
+                                <button class="feedback-btn" data-accuracy="excellent">Excellent</button>
+                                <button class="feedback-btn" data-accuracy="good">Good</button>
+                                <button class="feedback-btn" data-accuracy="fair">Fair</button>
+                                <button class="feedback-btn" data-accuracy="poor">Poor</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="notes">Additional Notes:</label>
+                            <textarea id="notes" rows="3" placeholder="Any comments about the detection..."></textarea>
+                        </div>
+
+                        <button id="submit-feedback-btn" class="btn btn-success">Submit Feedback</button>
+                    </div>
+
+                    <div class="feedback-info">
+                        <h4>How to provide feedback:</h4>
+                        <ul>
+                            <li>Enter the actual number of plaques you observe</li>
+                            <li>Rate the detection accuracy</li>
+                            <li>Add notes about missed or false detections</li>
+                            <li>Your feedback will improve the model over time</li>
+                        </ul>
+
+                        <div class="retrain-box">
+                            <h4>Model Training</h4>
+                            <p>Need at least 5 annotated samples to retrain the model.</p>
+                            <button id="retrain-btn" class="btn btn-secondary" disabled>Retrain Model</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loading-overlay">
+            <div class="spinner"></div>
+            <p>Processing image...</p>
+        </div>
+
+        <!-- Toast Notification -->
+        <div class="toast" id="toast"></div>
+    </div>
+
+    <footer>
+        <p>Phage Plaque Counter v1.0 | Powered by Deep Learning</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
