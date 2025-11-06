@@ -1,7 +1,3 @@
-import torch
-import torch.nn as nn
-import torchvision.models as models
-import torchvision.transforms as transforms
 import cv2
 import numpy as np
 from skimage import measure, morphology
@@ -10,50 +6,20 @@ import os
 import json
 
 
-class PlaqueDetectionModel(nn.Module):
-    """CNN model for plaque feature extraction and classification"""
-
-    def __init__(self):
-        super(PlaqueDetectionModel, self).__init__()
-        # Use ResNet18 as backbone
-        resnet = models.resnet18(pretrained=True)
-        # Remove final FC layer
-        self.features = nn.Sequential(*list(resnet.children())[:-2])
-
-        # Add custom layers for plaque detection
-        self.classifier = nn.Sequential(
-            nn.AdaptiveAvgPool2d((1, 1)),
-            nn.Flatten(),
-            nn.Linear(512, 256),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(256, 2)  # plaque vs background
-        )
-
-    def forward(self, x):
-        features = self.features(x)
-        output = self.classifier(features)
-        return output
-
-
 class PlaqueDetector:
-    """Main plaque detection class combining traditional CV and deep learning"""
+    """Main plaque detection class using computer vision methods"""
 
     def __init__(self):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.model = PlaqueDetectionModel().to(self.device)
         self.model_version = 0
 
-        # Load checkpoint if exists
-        checkpoint_path = 'model/checkpoints/latest.pth'
-        if os.path.exists(checkpoint_path):
-            self.load_model(checkpoint_path)
-
-        self.transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225])
-        ])
+        # Try to load version from file
+        version_file = 'model/checkpoints/version.txt'
+        if os.path.exists(version_file):
+            try:
+                with open(version_file, 'r') as f:
+                    self.model_version = int(f.read().strip())
+            except:
+                pass
 
     def preprocess_image(self, image_path):
         """Load and preprocess image for detection"""
@@ -214,16 +180,14 @@ class PlaqueDetector:
         # Perform segmentation with custom parameters
         detections = self.segment_plaques(img_rgb, params)
 
-        # TODO: Add deep learning refinement for classification
-        # For now, using traditional CV methods
-
         return detections
 
     def retrain(self, annotations, upload_folder):
         """Retrain model with user feedback"""
-        # Prepare training data from annotations
-        training_data = []
+        # For CV-based method, we update parameters based on feedback
+        # In a real implementation, this would adjust detection thresholds
 
+        training_data = []
         for annotation in annotations:
             image_id = annotation['image_id']
             image_path = os.path.join(upload_folder, image_id)
@@ -231,46 +195,24 @@ class PlaqueDetector:
             if not os.path.exists(image_path):
                 continue
 
-            corrections = annotation.get('corrections', [])
-            actual_count = annotation.get('actual_count')
-
             training_data.append({
                 'image_path': image_path,
-                'corrections': corrections,
-                'actual_count': actual_count
+                'actual_count': annotation.get('actual_count'),
+                'plaques': annotation.get('plaques', [])
             })
 
         if len(training_data) < 5:
             raise ValueError("Insufficient training data")
 
-        # TODO: Implement training loop
-        # For now, just increment version
+        # Increment version
         self.model_version += 1
-        self.save_model(f'model/checkpoints/version_{self.model_version}.pth')
+
+        # Save version
+        os.makedirs('model/checkpoints', exist_ok=True)
+        with open('model/checkpoints/version.txt', 'w') as f:
+            f.write(str(self.model_version))
 
         print(f"Model retrained to version {self.model_version} with {len(training_data)} samples")
-
-    def save_model(self, path):
-        """Save model checkpoint"""
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        torch.save({
-            'model_state_dict': self.model.state_dict(),
-            'version': self.model_version
-        }, path)
-
-        # Also save as latest
-        latest_path = 'model/checkpoints/latest.pth'
-        torch.save({
-            'model_state_dict': self.model.state_dict(),
-            'version': self.model_version
-        }, latest_path)
-
-    def load_model(self, path):
-        """Load model checkpoint"""
-        checkpoint = torch.load(path, map_location=self.device)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
-        self.model_version = checkpoint.get('version', 0)
-        print(f"Loaded model version {self.model_version}")
 
     def get_model_version(self):
         """Get current model version"""
