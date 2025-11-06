@@ -1,15 +1,17 @@
-# Phage Plaque Counter
+# Phage Plaque Counter v2.0
 
-An AI-powered web application for automated detection and counting of bacteriophage plaques in petri dish images. This tool combines computer vision and deep learning to quantify phage killing efficiency with continuous model improvement through user feedback.
+An AI-powered web application for automated detection and counting of bacteriophage plaques in petri dish images. Features **interactive annotation**, **camera capture**, and **adjustable detection parameters** for accurate plaque counting with continuous model improvement.
 
-## Features
+## Key Features
 
-- **Automated Plaque Detection**: Deep learning-based detection using computer vision algorithms
-- **Interactive Web Interface**: User-friendly interface for image upload and analysis
-- **Visual Results**: Highlighted visualization of detected plaques with confidence scores
-- **User Feedback Loop**: Collect corrections and annotations to improve model accuracy
-- **Model Retraining**: Automated retraining pipeline with accumulated user feedback
-- **Real-time Statistics**: Track annotations and model versions
+- **📸 Camera Capture**: Take photos directly with your device camera or upload images
+- **🎯 Interactive Annotation**: Click to add or remove plaques directly on the image
+- **⚙️ Adjustable Parameters**: Fine-tune detection sensitivity, size limits, and spacing
+- **🖼️ Real-time Visualization**: See detected plaques highlighted with confidence colors
+- **💾 Save & Export**: Download annotated images and save counting data
+- **📊 Results History**: Track all your saved counts with notes and timestamps
+- **🧠 Continuous Learning**: Model improves automatically from your corrections
+- **📱 Mobile-Friendly**: Responsive design works on phones, tablets, and desktops
 
 ## Background
 
@@ -65,33 +67,73 @@ Bacteriophages (phages) kill bacteria by creating clearings called "plaques" in 
 
 ## Usage Guide
 
-### 1. Upload Image
+### Step 1: Capture or Upload Image
 
-- Click the upload area or drag and drop a petri dish image
-- Supported formats: JPG, PNG
-- Recommended: Clear, well-lit images with visible plaques
+**Option A: Camera Capture**
+1. Click "Take Photo" button
+2. Allow camera access when prompted
+3. Frame your petri dish in the camera view
+4. Click "Capture Photo" to take the picture
 
-### 2. Analyze
+**Option B: Upload Image**
+1. Click "Upload Image" button
+2. Select a petri dish image from your device
+3. Supported formats: JPG, PNG
+4. Click "Detect Plaques" to start analysis
 
-- Click "Analyze Image" to start detection
-- The system will process the image and detect plaques
-- Results show:
-  - Original image
-  - Visualization with highlighted plaques
-  - Total plaque count
+### Step 2: Review and Correct Detections
 
-### 3. Provide Feedback
+The system automatically detects plaques, but you can refine the results:
 
-- Enter the actual number of plaques you observe
-- Rate the detection accuracy (Excellent/Good/Fair/Poor)
-- Add notes about any issues or observations
-- Submit feedback to improve the model
+**Add Missed Plaques:**
+1. Ensure "Add Plaque" mode is selected (green button)
+2. Click anywhere on the image to mark a missed plaque
+3. Count updates automatically
 
-### 4. Retrain Model
+**Remove False Detections:**
+1. Click "Remove Plaque" mode button
+2. Click on an incorrect detection to remove it
+3. Count updates in real-time
 
-- After collecting at least 5 annotated samples
-- Click "Retrain Model" to update the detection algorithm
-- The model will incorporate your corrections for better accuracy
+**Adjust Detection Parameters:**
+- **Minimum Size**: Smallest plaque radius to detect
+- **Maximum Size**: Largest plaque radius to detect
+- **Sensitivity**: Lower = stricter matching, Higher = more permissive
+- **Minimum Distance**: Minimum spacing between plaques
+- Click "Re-detect with Parameters" to run detection again
+
+**Visual Feedback:**
+- Green circles = High confidence detections or manual additions
+- Yellow circles = Medium confidence
+- Red circles = Low confidence
+- Each plaque is numbered for easy reference
+
+### Step 3: Save Results
+
+1. **Add Sample Information** (optional):
+   - Enter a sample name (e.g., "Experiment-A-Plate-1")
+   - Add notes about the sample
+
+2. **Choose Save Options**:
+   - ✓ Save annotated image - Saves the image with circles and numbers
+   - ✓ Save count data - Saves the plaque count and metadata
+
+3. **Actions**:
+   - **Save Results**: Saves to database and history
+   - **Download Image**: Downloads annotated image to your device
+   - **Analyze New Image**: Start over with a new sample
+
+### Step 4: View History & Train Model
+
+**View Saved Results:**
+- Scroll to "Saved Results" section
+- See all your previous counts with dates and notes
+
+**Train the Model:**
+- Save at least 5 annotated samples
+- Click "Train Model" button
+- The model learns from your corrections
+- Future detections become more accurate
 
 ## How It Works
 
@@ -134,45 +176,67 @@ plaque-counter/
 ├── app.py                      # Flask application
 ├── requirements.txt            # Python dependencies
 ├── README.md                   # This file
+├── example_usage.py            # Command-line usage example
 ├── model/
 │   ├── __init__.py
 │   ├── plaque_detector.py     # Main detection class
-│   └── checkpoints/           # Model weights
+│   └── checkpoints/           # Model weights (created at runtime)
 ├── utils/
 │   ├── __init__.py
 │   └── image_processor.py     # Image processing utilities
 ├── static/
 │   ├── index.html             # Web interface
 │   ├── style.css              # Styling
-│   └── app.js                 # Frontend logic
+│   └── app.js                 # Frontend logic (interactive annotation)
 ├── uploads/                   # Uploaded images (created at runtime)
-└── annotations/               # User feedback data (created at runtime)
+├── annotations/               # Training annotations (created at runtime)
+└── saved_results/             # Saved counting results (created at runtime)
 ```
 
 ## API Endpoints
 
 ### POST /api/upload
-Upload and analyze a petri dish image.
+Upload and analyze a petri dish image with custom parameters.
 
-**Request**: multipart/form-data with 'image' field
-**Response**: JSON with detections and visualization paths
+**Request**:
+- `multipart/form-data` with 'image' field
+- Optional: min_radius, max_radius, sensitivity, min_distance
 
-### POST /api/feedback
-Submit user feedback for an analyzed image.
+**Response**: JSON with detections, count, image_id, and parameters
 
-**Request**: JSON with image_id, actual_count, accuracy, notes
-**Response**: Success confirmation
+### POST /api/save
+Save annotated results with user corrections.
+
+**Request**: JSON with:
+- image_id
+- sample_name (optional)
+- notes (optional)
+- total_count
+- auto_detected_count
+- manual_count
+- plaques (array of plaque objects)
+- detection_params
+
+**Response**: Success confirmation with result_id
+
+### GET /api/history
+Get all saved counting results.
+
+**Response**: JSON array of all saved results sorted by timestamp
 
 ### POST /api/retrain
-Trigger model retraining with accumulated feedback.
+Trigger model retraining with accumulated annotations.
 
 **Request**: Empty POST
-**Response**: Training status and message
+**Response**: Training status and message (requires 5+ annotations)
 
 ### GET /api/stats
-Get current statistics about annotations and model version.
+Get statistics about saved results and model version.
 
-**Response**: JSON with annotation_count and model_version
+**Response**: JSON with:
+- annotation_count
+- saved_results_count
+- model_version
 
 ## Tips for Best Results
 
@@ -209,16 +273,27 @@ Get current statistics about annotations and model version.
 - Check that annotation files exist in annotations/ folder
 - Review server logs for errors
 
+## What's New in v2.0
+
+✅ **Interactive Annotation** - Click to add/remove plaques directly on images
+✅ **Camera Capture** - Take photos with your device camera
+✅ **Adjustable Parameters** - Real-time control over detection settings
+✅ **Results History** - Track all your saved counts and annotations
+✅ **Download Capability** - Export annotated images instantly
+✅ **Mobile Support** - Fully responsive design for phones and tablets
+✅ **Real-time Updates** - See count changes immediately as you annotate
+
 ## Future Enhancements
 
 - [ ] Integration with Detectron2 for instance segmentation
-- [ ] Interactive plaque annotation tool with click-to-mark interface
 - [ ] Batch processing for multiple images
 - [ ] Export results to CSV/Excel
 - [ ] Advanced metrics (plaque size distribution, clarity scores)
 - [ ] Integration with laboratory information systems
 - [ ] Multi-user support with authentication
 - [ ] Cloud deployment options
+- [ ] Undo/redo for annotations
+- [ ] Keyboard shortcuts for faster annotation
 
 ## Contributing
 

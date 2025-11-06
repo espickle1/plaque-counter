@@ -65,8 +65,17 @@ class PlaqueDetector:
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         return img, img_rgb
 
-    def segment_plaques(self, image):
+    def segment_plaques(self, image, params=None):
         """Use traditional CV methods for initial plaque segmentation"""
+        # Default parameters
+        if params is None:
+            params = {
+                'min_radius': 5,
+                'max_radius': 50,
+                'sensitivity': 30,
+                'min_distance': 20
+            }
+
         # Convert to grayscale
         gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
 
@@ -82,11 +91,11 @@ class PlaqueDetector:
             enhanced,
             cv2.HOUGH_GRADIENT,
             dp=1.2,
-            minDist=20,
+            minDist=params['min_distance'],
             param1=50,
-            param2=30,
-            minRadius=5,
-            maxRadius=50
+            param2=params['sensitivity'],
+            minRadius=params['min_radius'],
+            maxRadius=params['max_radius']
         )
 
         detections = []
@@ -102,7 +111,7 @@ class PlaqueDetector:
                 })
 
         # Also try adaptive thresholding for irregular plaques
-        adaptive_detections = self.detect_by_thresholding(enhanced)
+        adaptive_detections = self.detect_by_thresholding(enhanced, params)
         detections.extend(adaptive_detections)
 
         # Remove overlapping detections
@@ -110,8 +119,11 @@ class PlaqueDetector:
 
         return detections
 
-    def detect_by_thresholding(self, gray_image):
+    def detect_by_thresholding(self, gray_image, params=None):
         """Alternative detection method using adaptive thresholding"""
+        if params is None:
+            params = {'min_radius': 5, 'max_radius': 50}
+
         # Apply adaptive thresholding
         thresh = cv2.adaptiveThreshold(
             gray_image,
@@ -133,14 +145,17 @@ class PlaqueDetector:
             cv2.CHAIN_APPROX_SIMPLE
         )
 
+        min_area = params['min_radius'] ** 2 * 3.14
+        max_area = params['max_radius'] ** 2 * 3.14
+
         detections = []
         for contour in contours:
             area = cv2.contourArea(contour)
             # Filter by area (plaques should be reasonably sized)
-            if 50 < area < 5000:
+            if min_area < area < max_area:
                 # Fit circle to contour
                 (x, y), radius = cv2.minEnclosingCircle(contour)
-                if radius > 5:
+                if params['min_radius'] <= radius <= params['max_radius']:
                     detections.append({
                         'x': int(x),
                         'y': int(y),
@@ -192,12 +207,12 @@ class PlaqueDetector:
 
         return [detections[i] for i in pick]
 
-    def detect(self, image_path):
-        """Main detection method"""
+    def detect(self, image_path, params=None):
+        """Main detection method with custom parameters"""
         img_bgr, img_rgb = self.preprocess_image(image_path)
 
-        # Perform segmentation
-        detections = self.segment_plaques(img_rgb)
+        # Perform segmentation with custom parameters
+        detections = self.segment_plaques(img_rgb, params)
 
         # TODO: Add deep learning refinement for classification
         # For now, using traditional CV methods

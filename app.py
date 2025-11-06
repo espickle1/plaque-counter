@@ -13,9 +13,12 @@ CORS(app)
 UPLOAD_FOLDER = 'uploads'
 ANNOTATIONS_FOLDER = 'annotations'
 MODEL_FOLDER = 'model/checkpoints'
+SAVED_RESULTS_FOLDER = 'saved_results'
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(ANNOTATIONS_FOLDER, exist_ok=True)
 os.makedirs(MODEL_FOLDER, exist_ok=True)
+os.makedirs(SAVED_RESULTS_FOLDER, exist_ok=True)
 
 # Initialize detector
 detector = PlaqueDetector()
@@ -29,13 +32,21 @@ def index():
 
 @app.route('/api/upload', methods=['POST'])
 def upload_image():
-    """Handle image upload and perform plaque detection"""
+    """Handle image upload and perform plaque detection with custom parameters"""
     if 'image' not in request.files:
         return jsonify({'error': 'No image provided'}), 400
 
     file = request.files['image']
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
+
+    # Get detection parameters from request
+    params = {
+        'min_radius': int(request.form.get('min_radius', 5)),
+        'max_radius': int(request.form.get('max_radius', 50)),
+        'sensitivity': int(request.form.get('sensitivity', 30)),
+        'min_distance': int(request.form.get('min_distance', 20))
+    }
 
     # Save uploaded image
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -44,23 +55,16 @@ def upload_image():
     file.save(filepath)
 
     try:
-        # Process image and detect plaques
-        detections = detector.detect(filepath)
-
-        # Generate visualization
-        viz_path = image_processor.create_visualization(
-            filepath,
-            detections,
-            os.path.join(UPLOAD_FOLDER, f"viz_{filename}")
-        )
+        # Process image and detect plaques with custom parameters
+        detections = detector.detect(filepath, params)
 
         # Prepare response
         response = {
             'image_id': filename,
             'count': len(detections),
             'detections': detections,
-            'visualization': f"/uploads/viz_{filename}",
-            'original': f"/uploads/{filename}"
+            'original': f"/uploads/{filename}",
+            'params': params
         }
 
         return jsonify(response)
@@ -69,9 +73,90 @@ def upload_image():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/save', methods=['POST'])
+def save_results():
+    """Save annotated results with user corrections"""
+    data = request.json
+
+    if not data or 'image_id' not in data:
+        return jsonify({'error': 'Invalid data'}), 400
+
+    try:
+        # Create unique ID for this result
+        result_id = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+
+        # Save annotation data
+        annotation_file = os.path.join(
+            SAVED_RESULTS_FOLDER,
+            f"{result_id}.json"
+        )
+
+        result_data = {
+            'id': result_id,
+            'image_id': data.get('image_id'),
+            'sample_name': data.get('sample_name', 'Untitled'),
+            'notes': data.get('notes', ''),
+            'total_count': data.get('total_count', 0),
+            'auto_detected_count': data.get('auto_detected_count', 0),
+            'manual_count': data.get('manual_count', 0),
+            'plaques': data.get('plaques', []),
+            'detection_params': data.get('detection_params', {}),
+            'timestamp': data.get('timestamp', datetime.now().isoformat())
+        }
+
+        with open(annotation_file, 'w') as f:
+            json.dump(result_data, f, indent=2)
+
+        # Also save to annotations folder for training
+        training_annotation_file = os.path.join(
+            ANNOTATIONS_FOLDER,
+            f"{data['image_id']}.json"
+        )
+
+        training_data = {
+            'image_id': data['image_id'],
+            'actual_count': data['total_count'],
+            'plaques': data.get('plaques', []),
+            'timestamp': result_data['timestamp']
+        }
+
+        with open(training_annotation_file, 'w') as f:
+            json.dump(training_data, f, indent=2)
+
+        return jsonify({
+            'message': 'Results saved successfully',
+            'result_id': result_id
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/history', methods=['GET'])
+def get_history():
+    """Get all saved results"""
+    try:
+        results = []
+
+        for filename in os.listdir(SAVED_RESULTS_FOLDER):
+            if filename.endswith('.json'):
+                filepath = os.path.join(SAVED_RESULTS_FOLDER, filename)
+                with open(filepath, 'r') as f:
+                    data = json.load(f)
+                    results.append(data)
+
+        # Sort by timestamp, newest first
+        results.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+
+        return jsonify(results)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/feedback', methods=['POST'])
 def submit_feedback():
-    """Store user feedback for model improvement"""
+    """Store user feedback for model improvement (legacy endpoint)"""
     data = request.json
 
     if not data or 'image_id' not in data:
@@ -125,10 +210,12 @@ def retrain_model():
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
     """Get statistics about annotations and model"""
+    saved_results_count = len([f for f in os.listdir(SAVED_RESULTS_FOLDER) if f.endswith('.json')])
     annotation_count = len([f for f in os.listdir(ANNOTATIONS_FOLDER) if f.endswith('.json')])
 
     return jsonify({
         'annotation_count': annotation_count,
+        'saved_results_count': saved_results_count,
         'model_version': detector.get_model_version()
     })
 
@@ -136,6 +223,11 @@ def get_stats():
 @app.route('/uploads/<path:filename>')
 def serve_upload(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
+
+
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory('static', filename)
 
 
 if __name__ == '__main__':

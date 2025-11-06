@@ -15,6 +15,7 @@ build/
 # Application data
 uploads/
 annotations/
+saved_results/
 model/checkpoints/
 
 # IDE
